@@ -1,4 +1,5 @@
 import asyncio
+import sys
 import random
 import string
 import io
@@ -2147,4 +2148,5 @@ if __name__ == "__main__":
         print("\n🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+
 
