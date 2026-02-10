@@ -254,40 +254,62 @@ def game_selection_keyboard():
 def admin_kb_main(user_id):
     status_icon = "▶️" if not BOT_STOPPED else "⏸"
     kb = []
-    kb.append([InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")])
+    kb.append([InlineKeyboardButton("📊 Полная Статистика", callback_data="admin_stats")])
     
-    row2 = []
-    if check_perm(user_id, PERM_ACCS):
-        row2.append(InlineKeyboardButton("📦 Аккаунты", callback_data="admin_menu_accs"))
-    if check_perm(user_id, PERM_PROMOS):
-        row2.append(InlineKeyboardButton("🎟 Промокоды", callback_data="admin_menu_promo"))
-    if row2: kb.append(row2)
-
-    row3 = [InlineKeyboardButton("⭐ Отзывы", callback_data="admin_menu_reviews")]
-    if check_perm(user_id, PERM_BAN):
-        row3.append(InlineKeyboardButton("👥 Пользователи", callback_data="admin_menu_users"))
-    kb.append(row3)
-
-    row4 = []
-    if check_perm(user_id, PERM_BROADCAST):
-        row4.append(InlineKeyboardButton("📣 Рассылка", callback_data="admin_broadcast_start")) 
-    row4.append(InlineKeyboardButton("✉️ ЛС", callback_data="admin_pm"))
-    kb.append(row4)
-
-    row5 = []
-    if check_perm(user_id, PERM_CHANNELS):
-        row5.append(InlineKeyboardButton("📢 Каналы", callback_data="admin_menu_channels"))
-    if check_perm(user_id, PERM_ADD_ADMIN):
-        row5.append(InlineKeyboardButton("🛡 Админы", callback_data="admin_menu_admins"))
-    if row5: kb.append(row5)
-
-    if check_perm(user_id, PERM_SETTINGS):
+    # ДЛЯ СУПЕР-АДМИНА - ВСЕ КНОПКИ
+    if user_id in SUPER_ADMIN_IDS:
+        kb.append([
+            InlineKeyboardButton("📦 Аккаунты", callback_data="admin_menu_accs"),
+            InlineKeyboardButton("🎟 Промокоды", callback_data="admin_menu_promo")
+        ])
+        kb.append([
+            InlineKeyboardButton("⭐ Отзывы", callback_data="admin_menu_reviews"),
+            InlineKeyboardButton("👥 Пользователи", callback_data="admin_menu_users")
+        ])
+        kb.append([
+            InlineKeyboardButton("📣 Рассылка", callback_data="admin_broadcast_start"),
+            InlineKeyboardButton("✉️ ЛС", callback_data="admin_pm")
+        ])
+        kb.append([
+            InlineKeyboardButton("📢 Каналы", callback_data="admin_menu_channels"),
+            InlineKeyboardButton("🛡 Админы", callback_data="admin_menu_admins")
+        ])
         kb.append([InlineKeyboardButton("⚙️ Настройки", callback_data="admin_menu_settings")])
+    else:
+        # Для обычных админов - старая логика
+        row2 = []
+        if check_perm(user_id, PERM_ACCS):
+            row2.append(InlineKeyboardButton("📦 Аккаунты", callback_data="admin_menu_accs"))
+        if check_perm(user_id, PERM_PROMOS):
+            row2.append(InlineKeyboardButton("🎟 Промокоды", callback_data="admin_menu_promo"))
+        if row2: kb.append(row2)
 
+        row3 = [InlineKeyboardButton("⭐ Отзывы", callback_data="admin_menu_reviews")]
+        if check_perm(user_id, PERM_BAN):
+            row3.append(InlineKeyboardButton("👥 Пользователи", callback_data="admin_menu_users"))
+        kb.append(row3)
+
+        row4 = []
+        if check_perm(user_id, PERM_BROADCAST):
+            row4.append(InlineKeyboardButton("📣 Рассылка", callback_data="admin_broadcast_start")) 
+        row4.append(InlineKeyboardButton("✉️ ЛС", callback_data="admin_pm"))
+        kb.append(row4)
+
+        row5 = []
+        if check_perm(user_id, PERM_CHANNELS):
+            row5.append(InlineKeyboardButton("📢 Каналы", callback_data="admin_menu_channels"))
+        if check_perm(user_id, PERM_ADD_ADMIN):
+            row5.append(InlineKeyboardButton("🛡 Админы", callback_data="admin_menu_admins"))
+        if row5: kb.append(row5)
+
+        if check_perm(user_id, PERM_SETTINGS):
+            kb.append([InlineKeyboardButton("⚙️ Настройки", callback_data="admin_menu_settings")])
+    
     kb.append([InlineKeyboardButton(f"{status_icon} Стоп/Старт Бот", callback_data="admin_toggle_bot")])
     kb.append([InlineKeyboardButton("❌ Закрыть", callback_data="admin_close")])
+    
     return InlineKeyboardMarkup(kb)
-
+    
 def admin_kb_accounts():
     total_accounts = (len(data['accounts_common_tanks']) + len(data['accounts_promo_tanks']) +
                      len(data['accounts_common_blitz']))
@@ -2149,6 +2171,7 @@ if __name__ == "__main__":
         print("\n🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+
 
 
 
