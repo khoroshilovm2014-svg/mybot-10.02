@@ -1,5 +1,3 @@
-import json
-import sys
 import asyncio
 import random
 import string
@@ -1508,8 +1506,8 @@ async def handle_broadcast_btn_url(update: Update, context: CallbackContext):
     await show_broadcast_preview(update, context)
 
 async def show_broadcast_preview(update: Update, context: CallbackContext):
-    chat_id = context.user_data["broadcast_chat_id"]
-    msg_id = context.user_data["broadcast_msg_id"]
+    chat_id = context.user_data.get("broadcast_chat_id")
+    msg_id = context.user_data.get("broadcast_msg_id")
     
     kb = None
     if "broadcast_btn_text" in context.user_data:
@@ -1521,12 +1519,25 @@ async def show_broadcast_preview(update: Update, context: CallbackContext):
     await update.effective_message.reply_text("📢 <b>ПРЕДПРОСМОТР РАССЫЛКИ:</b>", parse_mode='HTML')
     
     try:
-        await context.bot.copy_message(
-            chat_id=update.effective_chat.id,
-            from_chat_id=chat_id,
-            message_id=msg_id,
-            reply_markup=kb
-        )
+        # Если есть сохраненный текст (текстовое сообщение)
+        if "broadcast_msg_text" in context.user_data:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=context.user_data["broadcast_msg_text"],
+                reply_markup=kb,
+                parse_mode='HTML' if '<' in context.user_data["broadcast_msg_text"] else None
+            )
+        elif chat_id and msg_id:
+            # Для медиа-контента
+            await context.bot.copy_message(
+                chat_id=update.effective_chat.id,
+                from_chat_id=chat_id,
+                message_id=msg_id,
+                reply_markup=kb
+            )
+        else:
+            await update.effective_message.reply_text("❌ Ошибка: данные рассылки не найдены")
+            return
     except Exception as e:
         await update.effective_message.reply_text(f"Ошибка предпросмотра: {e}")
         
@@ -1537,8 +1548,8 @@ async def start_broadcast(update: Update, context: CallbackContext):
     query = update.callback_query
     await query.edit_message_text("🚀 Рассылка запущена! Это может занять время...")
     
-    chat_id = context.user_data["broadcast_chat_id"]
-    msg_id = context.user_data["broadcast_msg_id"]
+    chat_id = context.user_data.get("broadcast_chat_id")
+    msg_id = context.user_data.get("broadcast_msg_id")
     kb = None
     if "broadcast_btn_text" in context.user_data:
         kb = InlineKeyboardMarkup([[InlineKeyboardButton(
@@ -1548,32 +1559,54 @@ async def start_broadcast(update: Update, context: CallbackContext):
         
     count = 0
     block_count = 0
+    error_count = 0
     
     users = list(data["users"].keys())
+    
     for uid in users:
         try:
-            await context.bot.copy_message(
-                chat_id=int(uid),
-                from_chat_id=chat_id,
-                message_id=msg_id,
-                reply_markup=kb
-            )
+            # Если есть сохраненный текст (текстовое сообщение)
+            if "broadcast_msg_text" in context.user_data:
+                await context.bot.send_message(
+                    chat_id=int(uid),
+                    text=context.user_data["broadcast_msg_text"],
+                    reply_markup=kb,
+                    parse_mode='HTML' if '<' in context.user_data["broadcast_msg_text"] else None
+                )
+            elif chat_id and msg_id:
+                # Для медиа-контента
+                await context.bot.copy_message(
+                    chat_id=int(uid),
+                    from_chat_id=chat_id,
+                    message_id=msg_id,
+                    reply_markup=kb
+                )
+            else:
+                print(f"Ошибка: нет данных для рассылки пользователю {uid}")
+                error_count += 1
+                continue
+                
             count += 1
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.05)  # Задержка чтобы не превысить лимиты Telegram
         except Forbidden:
             block_count += 1
         except Exception as e:
             print(f"Ошибка отправки {uid}: {e}")
+            error_count += 1
             
     # УВЕДОМЛЕНИЕ СУПЕР-АДМИНОВ О РАССЫЛКЕ
     await notify_super_admins(
         context,
-        f"📣 <b>ВЫПОЛНЕНА РАССЫЛКА</b>\nКем: {get_user_link(query.from_user)}\nОтправлено: {count} пользователям\nЗаблокировали бота: {block_count}\nВсего в базе: {len(users)}"
+        f"📣 <b>ВЫПОЛНЕНА РАССЫЛКА</b>\nКем: {get_user_link(query.from_user)}\nОтправлено: {count} пользователям\nЗаблокировали бота: {block_count}\nОшибок: {error_count}\nВсего в базе: {len(users)}"
     )
     
-    await query.edit_message_text(f"✅ Рассылка завершена!\n\n📊 Статистика:\n• Отправлено: {count}\n• Заблокировали бота: {block_count}\n• Всего в базе: {len(users)}")
+    await query.edit_message_text(
+        f"✅ Рассылка завершена!\n\n📊 Статистика:\n• Отправлено: {count}\n• Заблокировали бота: {block_count}\n• Ошибок: {error_count}\n• Всего в базе: {len(users)}"
+    )
     
-    for key in ["broadcast_step", "broadcast_msg_id", "broadcast_chat_id", "broadcast_btn_text", "broadcast_btn_url"]:
+    # Очищаем все данные рассылки
+    for key in ["broadcast_step", "broadcast_msg_id", "broadcast_chat_id", 
+                "broadcast_btn_text", "broadcast_btn_url", "broadcast_msg_text"]:
         if key in context.user_data:
             del context.user_data[key]
 
@@ -1584,6 +1617,36 @@ async def handle_text(update: Update, context: CallbackContext):
 
     user_id = str(update.effective_user.id)
     text = update.message.text.strip()
+    
+    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверка на рассылку должна быть ПЕРВОЙ
+    if is_admin(update.effective_user.id):
+        # Обработка текста для рассылки
+        if context.user_data.get("broadcast_step") == "wait_content":
+            # Это текст для рассылки - сохраняем его как сообщение
+            context.user_data["broadcast_msg_id"] = update.message.message_id
+            context.user_data["broadcast_chat_id"] = update.message.chat_id
+            context.user_data["broadcast_msg_text"] = text  # Сохраняем текст отдельно
+            
+            await update.message.reply_text("Добавить кнопку с ссылкой?", reply_markup=broadcast_add_btn_kb())
+            context.user_data["broadcast_step"] = "wait_decision"
+            return
+        
+        elif context.user_data.get("broadcast_step") == "wait_btn_text":
+            context.user_data["broadcast_btn_text"] = text
+            await update.message.reply_text("🔗 Теперь отправьте ССЫЛКУ для кнопки (начинается с http/https):")
+            context.user_data["broadcast_step"] = "wait_btn_url"
+            return
+            
+        elif context.user_data.get("broadcast_step") == "wait_btn_url":
+            url = text.strip()
+            if not url.startswith("http"):
+                await update.message.reply_text("❌ Ссылка должна начинаться с http:// или https://. Попробуйте снова:")
+                return
+                
+            context.user_data["broadcast_btn_url"] = url
+            await update.message.reply_text("✅ Кнопка добавлена!")
+            await show_broadcast_preview(update, context)
+            return
     
     if context.user_data.get("awaiting_captcha"):
         if "captcha_correct" in context.user_data:
@@ -2036,7 +2099,13 @@ async def handle_media(update: Update, context: CallbackContext):
         return
     
     if context.user_data.get("broadcast_step") == "wait_content":
-        await handle_broadcast_content(update, context)
+        # Для медиа-контента (фото, видео и т.д.)
+        context.user_data["broadcast_msg_id"] = update.message.message_id
+        context.user_data["broadcast_chat_id"] = update.message.chat_id
+        
+        await update.message.reply_text("Добавить кнопку с ссылкой?", reply_markup=broadcast_add_btn_kb())
+        context.user_data["broadcast_step"] = "wait_decision"
+        return
 
 # Обработчик ошибок
 async def error_handler(update: Update, context: CallbackContext):
@@ -2078,4 +2147,3 @@ if __name__ == "__main__":
         print("\n🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
-
