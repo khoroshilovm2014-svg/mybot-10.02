@@ -21,7 +21,7 @@ print("Python version:", sys.version)
 # --- КОНФИГУРАЦИЯ ---
 DATA_FILE = "data.json"
 SUPER_ADMIN_IDS = [7635015201] 
-TOKEN = "7872046358:AAHnneGHEKw5xanQakSwePb-omQRnNO4_OE"
+TOKEN = "8363126247:AAGBW43p8JrLIBD9eZOyLfrL-XQGsxEug08"
 
 # ПРАВА ДОСТУПА
 PERM_BAN = 'ban_users'
@@ -2526,3 +2526,4 @@ if __name__ == "__main__":
         print("\n🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+
