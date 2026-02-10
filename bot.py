@@ -252,7 +252,7 @@ def game_selection_keyboard():
 def admin_kb_main(user_id):
     status_icon = "▶️" if not BOT_STOPPED else "⏸"
     kb = []
-    kb.append([InlineKeyboardButton("📊 Полная Статистика", callback_data="admin_stats")])
+    kb.append([InlineKeyboardButton("📊 Статистика", callback_data="admin_stats")])
     
     row2 = []
     if check_perm(user_id, PERM_ACCS):
@@ -2147,3 +2147,4 @@ if __name__ == "__main__":
         print("\n🛑 Бот остановлен")
     except Exception as e:
         print(f"❌ Ошибка: {e}")
+
